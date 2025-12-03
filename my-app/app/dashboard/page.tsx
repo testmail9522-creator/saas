@@ -1,212 +1,193 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
-import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabaseClient';
 
-const ffmpeg = createFFmpeg({ log: true });
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+} from 'recharts';
+
+const shortsData = [
+  { name: 'Jan', shorts: 12 },
+  { name: 'Feb', shorts: 19 },
+  { name: 'Mar', shorts: 25 },
+  { name: 'Apr', shorts: 31 },
+  { name: 'May', shorts: 45 },
+];
+
+const viewsData = [
+  { name: 'Jan', views: 1200 },
+  { name: 'Feb', views: 3200 },
+  { name: 'Mar', views: 6100 },
+  { name: 'Apr', views: 9400 },
+  { name: 'May', views: 15800 },
+];
 
 export default function DashboardPage() {
   const router = useRouter();
-
   const [user, setUser] = useState<any>(null);
-  const [loadingUser, setLoadingUser] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [file, setFile] = useState<File | null>(null);
-  const [originalURL, setOriginalURL] = useState<string | null>(null);
-
-  const [shortURL, setShortURL] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // 🔐 Check login
   useEffect(() => {
-    const init = async () => {
+    const getUser = async () => {
       const { data } = await supabase.auth.getUser();
-      if (!data.user) {
-        router.push("/login");
+
+      if (!data?.user) {
+        router.push('/login');
         return;
       }
+
       setUser(data.user);
-      setLoadingUser(false);
+      setLoading(false);
     };
-    init();
+
+    getUser();
   }, [router]);
 
-  const handleFileSelect = (f: File | null) => {
-    setFile(f);
-    setShortURL(null);
-    setError(null);
-    if (f) {
-      const url = URL.createObjectURL(f);
-      setOriginalURL(url);
-    } else {
-      setOriginalURL(null);
-    }
-  };
-
-  // 🎬 Core: generate short from local file (no storage)
-  const generateShort = async () => {
-    if (!file) {
-      setError("Please select a video first.");
-      return;
-    }
-
-    try {
-      setProcessing(true);
-      setError(null);
-
-      if (!ffmpeg.isLoaded()) {
-        await ffmpeg.load();
-      }
-
-      // Write file into FFmpeg's virtual FS
-      ffmpeg.FS("writeFile", "input.mp4", await fetchFile(file));
-
-      // For now: fake "AI highlight" = first 20 seconds, 9:16 vertical
-      // Later: this is where real AI highlight detection will plug in.
-      await ffmpeg.run(
-        "-i",
-        "input.mp4",
-        "-ss",
-        "00:00:00", // start at 0 sec
-        "-t",
-        "20", // duration 20 seconds
-        "-vf",
-        "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
-        "-c:v",
-        "libx264",
-        "-c:a",
-        "aac",
-        "output.mp4"
-      );
-
-      const data = ffmpeg.FS("readFile", "output.mp4");
-      const blob = new Blob([data.buffer], { type: "video/mp4" });
-      const url = URL.createObjectURL(blob);
-
-      setShortURL(url);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Failed to generate short.");
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-  };
-
-  if (loadingUser) {
+  if (loading) {
     return (
-      <main className="min-h-screen bg-black text-white flex items-center justify-center">
-        <p className="text-gray-400">Loading dashboard...</p>
-      </main>
+      <div className="min-h-screen bg-black text-white flex items-center justify-center text-lg">
+        Loading Dashboard...
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black text-white px-4 py-8">
-      <div className="max-w-6xl mx-auto flex justify-between items-center mb-8">
+    <main className="min-h-screen bg-black text-white px-6 py-10">
+
+      {/* ================= HEADER ================= */}
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-12 gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Shorts Generator Dashboard</h1>
-          {user && (
-            <p className="text-sm text-gray-400 mt-1">
-              Logged in as <span className="text-gray-200">{user.email}</span>
-            </p>
-          )}
+          <h1 className="text-4xl font-bold tracking-tight">
+            Analytics Dashboard
+          </h1>
+          <p className="text-gray-400 text-sm mt-1">
+            Account: {user.email}
+          </p>
         </div>
 
         <button
-          onClick={handleLogout}
-          className="px-4 py-2 rounded bg-red-600 text-sm"
+          onClick={async () => {
+            await supabase.auth.signOut();
+            router.push('/');
+          }}
+          className="bg-red-600 px-5 py-2 rounded-lg hover:bg-red-700 transition"
         >
           Logout
         </button>
       </div>
 
-      <div className="max-w-6xl mx-auto grid gap-8 md:grid-cols-2">
-        {/* LEFT: Upload + Controls */}
-        <section className="border border-white/20 rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-4">
-            1. Select long video (YouTube recording, stream, etc.)
+      {/* ================= KPI STATS ================= */}
+      <div className="grid md:grid-cols-4 gap-6 mb-14">
+
+        <div className="border border-gray-800 rounded-xl p-6">
+          <p className="text-gray-400 text-sm">Total Shorts</p>
+          <p className="text-3xl font-bold mt-2">132</p>
+          <p className="text-green-400 text-xs mt-1">+18% this month</p>
+        </div>
+
+        <div className="border border-gray-800 rounded-xl p-6">
+          <p className="text-gray-400 text-sm">Total Views</p>
+          <p className="text-3xl font-bold mt-2">36,400</p>
+          <p className="text-green-400 text-xs mt-1">+42% growth</p>
+        </div>
+
+        <div className="border border-gray-800 rounded-xl p-6">
+          <p className="text-gray-400 text-sm">Avg Views / Short</p>
+          <p className="text-3xl font-bold mt-2">276</p>
+          <p className="text-green-400 text-xs mt-1">Improving</p>
+        </div>
+
+        <div className="border border-gray-800 rounded-xl p-6">
+          <p className="text-gray-400 text-sm">Active Plan</p>
+          <p className="text-3xl font-bold mt-2 text-green-400">Free</p>
+          <p className="text-yellow-400 text-xs mt-1">Upgrade for more tools</p>
+        </div>
+
+      </div>
+
+      {/* ================= CHARTS ================= */}
+      <div className="grid md:grid-cols-2 gap-10 mb-14">
+
+        <div className="border border-gray-800 rounded-xl p-6">
+          <h2 className="text-lg font-semibold mb-6">
+            Shorts Generated (Monthly)
           </h2>
 
-          <input
-            type="file"
-            accept="video/*"
-            onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
-            className="mb-4 w-full"
-          />
+          <ResponsiveContainer width="100%" height={320}>
+            <BarChart data={shortsData}>
+              <XAxis dataKey="name" stroke="#aaa" />
+              <YAxis stroke="#aaa" />
+              <Tooltip />
+              <Bar dataKey="shorts" fill="#ffffff" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="border border-gray-800 rounded-xl p-6">
+          <h2 className="text-lg font-semibold mb-6">
+            Views Growth (Monthly)
+          </h2>
+
+          <ResponsiveContainer width="100%" height={320}>
+            <LineChart data={viewsData}>
+              <XAxis dataKey="name" stroke="#aaa" />
+              <YAxis stroke="#aaa" />
+              <Tooltip />
+              <Line
+                type="monotone"
+                dataKey="views"
+                stroke="#22c55e"
+                strokeWidth={3}
+                dot={{ r: 4 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+      </div>
+
+      {/* ================= QUICK ACTIONS ================= */}
+      <div className="border border-gray-800 rounded-xl p-6">
+        <h2 className="text-lg font-semibold mb-4">
+          Quick Actions
+        </h2>
+
+        <div className="flex flex-wrap gap-4">
 
           <button
-            onClick={generateShort}
-            disabled={processing || !file}
-            className="px-5 py-2 rounded bg-white text-black text-sm disabled:bg-white/40 disabled:text-black/60"
+            onClick={() => router.push('/upload')}
+            className="bg-white text-black px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition"
           >
-            {processing ? "Generating short..." : "Generate 20s Short"}
+            Upload New Video
           </button>
 
-          <p className="mt-3 text-xs text-gray-400">
-            For now, this takes the first 20 seconds and converts to vertical
-            9:16. Later we’ll plug in real AI highlight detection from your
-            YouTube lives/long videos.
-          </p>
+          <button
+            onClick={() => router.push('/pricing')}
+            className="border border-gray-700 px-6 py-3 rounded-lg hover:border-white transition"
+          >
+            Upgrade Plan
+          </button>
 
-          {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
-        </section>
+          {/* ✅ ✅ ✅ NOW WORKS */}
+          <button
+            onClick={() => router.push('/reports')}
+            className="border border-gray-700 px-6 py-3 rounded-lg hover:border-white transition"
+          >
+            View Reports
+          </button>
 
-        {/* RIGHT: Preview */}
-        <section className="border border-white/20 rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-4">
-            2. Preview & Download Short
-          </h2>
-
-          {!file && (
-            <p className="text-sm text-gray-500">
-              Select a video on the left to see preview and generate a short.
-            </p>
-          )}
-
-          {originalURL && (
-            <div className="mb-6">
-              <p className="text-xs text-gray-400 mb-1">Original video</p>
-              <video
-                src={originalURL}
-                controls
-                className="w-full rounded border border-white/10"
-              />
-            </div>
-          )}
-
-          {shortURL && (
-            <div>
-              <p className="text-xs text-gray-400 mb-1">Generated short (9:16)</p>
-              <video
-                src={shortURL}
-                controls
-                className="w-full rounded border border-white/10 mb-3"
-              />
-
-              <a
-                href={shortURL}
-                download="shorts-ai-output.mp4"
-                className="inline-block px-4 py-2 bg-green-500 text-black text-sm rounded"
-              >
-                Download Short
-              </a>
-
-              <p className="mt-2 text-xs text-gray-400">
-                After download, you can upload this to YouTube Shorts,
-                Instagram Reels, or Facebook manually.
-              </p>
-            </div>
-          )}
-        </section>
+        </div>
       </div>
+
     </main>
   );
 }
