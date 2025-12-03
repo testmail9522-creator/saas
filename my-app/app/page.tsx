@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function HomePage() {
   const router = useRouter();
@@ -8,7 +9,7 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-black text-white">
 
-      {/* ================= HERO SECTION (MOVED UP ✅) ================= */}
+      {/* ================= HERO SECTION ================= */}
       <section className="flex flex-col items-center justify-center text-center mt-12 px-6">
         <h1 className="text-5xl font-bold mb-6">
           Convert Long Videos into Viral Shorts
@@ -22,16 +23,35 @@ export default function HomePage() {
         {/* ===== BUTTONS ===== */}
         <div className="flex gap-4">
 
-          {/* ✅ UPLOAD BUTTON → GOES TO /UPLOAD */}
+          {/* ✅ LOGIN-PROTECTED UPLOAD BUTTON */}
           <button
-            onClick={() => router.push("/upload")}
+            onClick={async () => {
+              const { data } = await supabase.auth.getUser();
+
+              if (!data?.user) {
+                router.push("/login");
+              } else {
+                router.push("/upload");
+              }
+            }}
             className="bg-white text-black px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition"
           >
             Upload Video
           </button>
 
-          {/* Black YouTube Button */}
-          <button className="flex items-center gap-2 bg-black text-white px-6 py-3 rounded-lg border border-gray-700 hover:border-red-600 transition">
+          {/* ✅ ✅ LOGIN-PROTECTED CONNECT YOUTUBE BUTTON */}
+          <button
+            onClick={async () => {
+              const { data } = await supabase.auth.getUser();
+
+              if (!data?.user) {
+                router.push("/login");        // 🔒 Not logged in
+              } else {
+                router.push("/youtube");     // ✅ Logged in (future page)
+              }
+            }}
+            className="flex items-center gap-2 bg-black text-white px-6 py-3 rounded-lg border border-gray-700 hover:border-red-600 transition"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 576 512"
@@ -62,6 +82,7 @@ export default function HomePage() {
           <div className="border border-gray-800 rounded-xl p-8 text-center">
             <h3 className="text-2xl font-bold mb-2">Free</h3>
             <p className="text-gray-400 mb-4">Try the product risk-free</p>
+
             <div className="text-4xl font-bold mb-6">₹0</div>
 
             <ul className="space-y-2 text-sm mb-6">

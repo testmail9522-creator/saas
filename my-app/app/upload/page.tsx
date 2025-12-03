@@ -1,9 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 export default function UploadPage() {
+  const router = useRouter();
   const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data } = await supabase.auth.getUser();
+
+      // ✅ If NOT logged in → redirect to login
+      if (!data?.user) {
+        router.push("/login");
+        return;
+      }
+
+      // ✅ If logged in → allow page
+      setLoading(false);
+    };
+
+    checkAuth();
+  }, [router]);
+
+  // ✅ Prevent page flash before redirect
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        Checking authentication...
+      </div>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6">
