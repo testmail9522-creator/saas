@@ -3,12 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { createFFmpeg, fetchFile } from "@ffmpeg/ffmpeg";
 
-type VideoItem = {
-  name: string;
-  url: string;
-  created_at: string;
-};
+const ffmpeg = createFFmpeg({ log: true });
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -17,105 +14,84 @@ export default function DashboardPage() {
   const [loadingUser, setLoadingUser] = useState(true);
 
   const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [originalURL, setOriginalURL] = useState<string | null>(null);
 
-  const [videos, setVideos] = useState<VideoItem[]>([]);
-  const [loadingVideos, setLoadingVideos] = useState(false);
+  const [shortURL, setShortURL] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 🔐 CHECK LOGIN + LOAD VIDEOS
+  // 🔐 Check login
   useEffect(() => {
     const init = async () => {
-      setLoadingUser(true);
-      const { data, error } = await supabase.auth.getUser();
-
-      if (error || !data.user) {
+      const { data } = await supabase.auth.getUser();
+      if (!data.user) {
         router.push("/login");
         return;
       }
-
       setUser(data.user);
       setLoadingUser(false);
-      await fetchVideos(data.user.id);
     };
-
     init();
   }, [router]);
 
-  // 📂 FETCH USER VIDEOS FROM SUPABASE STORAGE
-  const fetchVideos = async (userId: string) => {
-    setLoadingVideos(true);
+  const handleFileSelect = (f: File | null) => {
+    setFile(f);
+    setShortURL(null);
     setError(null);
-
-    // list files in folder "userId/"
-    const { data, error } = await supabase.storage
-      .from("videos")
-      .list(userId, {
-        sortBy: { column: "created_at", order: "desc" },
-      });
-
-    if (error) {
-      setError(error.message);
-      setLoadingVideos(false);
-      return;
+    if (f) {
+      const url = URL.createObjectURL(f);
+      setOriginalURL(url);
+    } else {
+      setOriginalURL(null);
     }
-
-    const items: VideoItem[] =
-      data?.map((item) => {
-        const { data: publicData } = supabase.storage
-          .from("videos")
-          .getPublicUrl(`${userId}/${item.name}`);
-
-        return {
-          name: item.name,
-          url: publicData.publicUrl,
-          created_at: item.created_at || "",
-        };
-      }) || [];
-
-    setVideos(items);
-    setLoadingVideos(false);
   };
 
-  // ⬆️ UPLOAD HANDLER
-  const handleUpload = async () => {
+  // 🎬 Core: generate short from local file (no storage)
+  const generateShort = async () => {
     if (!file) {
-      alert("Please select a video file first.");
+      setError("Please select a video first.");
       return;
     }
-    if (!user) {
-      alert("You must be logged in to upload.");
-      return;
-    }
-
-    setUploading(true);
-    setError(null);
 
     try {
-      const fileExt = file.name.split(".").pop();
-      const safeName = file.name.replace(/\s+/g, "-").toLowerCase();
-      const filePath = `${user.id}/${Date.now()}-${safeName}`;
+      setProcessing(true);
+      setError(null);
 
-      const { error: uploadError } = await supabase.storage
-        .from("videos")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        throw uploadError;
+      if (!ffmpeg.isLoaded()) {
+        await ffmpeg.load();
       }
 
-      // refresh list
-      await fetchVideos(user.id);
-      setFile(null);
-      const inputEl = document.getElementById("video-input") as HTMLInputElement | null;
-if (inputEl) inputEl.value = "";
+      // Write file into FFmpeg's virtual FS
+      ffmpeg.FS("writeFile", "input.mp4", await fetchFile(file));
+
+      // For now: fake "AI highlight" = first 20 seconds, 9:16 vertical
+      // Later: this is where real AI highlight detection will plug in.
+      await ffmpeg.run(
+        "-i",
+        "input.mp4",
+        "-ss",
+        "00:00:00", // start at 0 sec
+        "-t",
+        "20", // duration 20 seconds
+        "-vf",
+        "scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2",
+        "-c:v",
+        "libx264",
+        "-c:a",
+        "aac",
+        "output.mp4"
+      );
+
+      const data = ffmpeg.FS("readFile", "output.mp4");
+      const blob = new Blob([data.buffer], { type: "video/mp4" });
+      const url = URL.createObjectURL(blob);
+
+      setShortURL(url);
     } catch (err: any) {
-      setError(err.message || "Failed to upload video");
+      console.error(err);
+      setError(err.message || "Failed to generate short.");
     } finally {
-      setUploading(false);
+      setProcessing(false);
     }
   };
 
@@ -134,10 +110,9 @@ if (inputEl) inputEl.value = "";
 
   return (
     <main className="min-h-screen bg-black text-white px-4 py-8">
-      {/* TOP BAR */}
       <div className="max-w-6xl mx-auto flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <h1 className="text-3xl font-bold">Shorts Generator Dashboard</h1>
           {user && (
             <p className="text-sm text-gray-400 mt-1">
               Logged in as <span className="text-gray-200">{user.email}</span>
@@ -153,72 +128,81 @@ if (inputEl) inputEl.value = "";
         </button>
       </div>
 
-      <div className="max-w-6xl mx-auto grid gap-8 md:grid-cols-[2fr,3fr]">
-        {/* UPLOAD CARD */}
-        <section className="border border-white/15 rounded-xl p-6">
+      <div className="max-w-6xl mx-auto grid gap-8 md:grid-cols-2">
+        {/* LEFT: Upload + Controls */}
+        <section className="border border-white/20 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">
-            Upload a long video (YouTube stream recording, etc.)
+            1. Select long video (YouTube recording, stream, etc.)
           </h2>
 
           <input
-            id="video-input"
             type="file"
             accept="video/*"
+            onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
             className="mb-4 w-full"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
           />
 
           <button
-            onClick={handleUpload}
-            disabled={uploading || !file}
+            onClick={generateShort}
+            disabled={processing || !file}
             className="px-5 py-2 rounded bg-white text-black text-sm disabled:bg-white/40 disabled:text-black/60"
           >
-            {uploading ? "Uploading..." : "Upload Video"}
+            {processing ? "Generating short..." : "Generate 20s Short"}
           </button>
 
           <p className="mt-3 text-xs text-gray-400">
-            Tip: Start with a 5–20 minute MP4 file while testing.
+            For now, this takes the first 20 seconds and converts to vertical
+            9:16. Later we’ll plug in real AI highlight detection from your
+            YouTube lives/long videos.
           </p>
 
           {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
         </section>
 
-        {/* VIDEO LIST / PREVIEW */}
-        <section className="border border-white/15 rounded-xl p-6">
+        {/* RIGHT: Preview */}
+        <section className="border border-white/20 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">
-            Your uploaded videos
+            2. Preview & Download Short
           </h2>
 
-          {loadingVideos ? (
-            <p className="text-gray-400 text-sm">Loading videos...</p>
-          ) : videos.length === 0 ? (
-            <p className="text-gray-500 text-sm">
-              No videos yet. Upload your first long video to start generating
-              highlights.
+          {!file && (
+            <p className="text-sm text-gray-500">
+              Select a video on the left to see preview and generate a short.
             </p>
-          ) : (
-            <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
-              {videos.map((video) => (
-                <div
-                  key={video.name}
-                  className="border border-white/10 rounded-lg p-4"
-                >
-                  <p className="text-sm mb-2 break-all">
-                    {video.name.replace(`${user.id}-`, "")}
-                  </p>
+          )}
 
-                  <video
-                    src={video.url}
-                    controls
-                    className="w-full rounded-md border border-white/10"
-                  />
+          {originalURL && (
+            <div className="mb-6">
+              <p className="text-xs text-gray-400 mb-1">Original video</p>
+              <video
+                src={originalURL}
+                controls
+                className="w-full rounded border border-white/10"
+              />
+            </div>
+          )}
 
-                  <p className="mt-2 text-xs text-gray-500">
-                    Stored in cloud. This will later be used to auto-detect
-                    highlights & create shorts.
-                  </p>
-                </div>
-              ))}
+          {shortURL && (
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Generated short (9:16)</p>
+              <video
+                src={shortURL}
+                controls
+                className="w-full rounded border border-white/10 mb-3"
+              />
+
+              <a
+                href={shortURL}
+                download="shorts-ai-output.mp4"
+                className="inline-block px-4 py-2 bg-green-500 text-black text-sm rounded"
+              >
+                Download Short
+              </a>
+
+              <p className="mt-2 text-xs text-gray-400">
+                After download, you can upload this to YouTube Shorts,
+                Instagram Reels, or Facebook manually.
+              </p>
             </div>
           )}
         </section>
