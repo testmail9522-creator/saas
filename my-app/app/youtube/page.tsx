@@ -1,150 +1,138 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "@/lib/supabase";
 
-export default function YouTubeConnectPage() {
-  const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [channel, setChannel] = useState<any>(null);
+export default function YouTubePage() {
+  const [channels, setChannels] = useState<any[]>([]);
+  const [selectedChannel, setSelectedChannel] = useState<any>(null);
   const [videos, setVideos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadYouTubeData = async () => {
-      // ✅ Check App Login
-      const { data: auth } = await supabase.auth.getUser();
-      if (!auth?.user) {
-        router.replace("/login");
-        return;
-      }
+    loadYouTube();
+  }, []);
 
-      // ✅ Get Google Access Token
-      const { data: session } = await supabase.auth.getSession();
-      const providerToken = session?.session?.provider_token;
+  async function loadYouTube() {
+    setLoading(true);
 
-      if (!providerToken) {
-        setLoading(false);
-        return;
-      }
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-      // ✅ Fetch Channel Info
-      const channelRes = await fetch(
-        "https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&mine=true",
-        {
-          headers: {
-            Authorization: `Bearer ${providerToken}`,
-          },
-        }
-      );
-
-      const channelData = await channelRes.json();
-      const myChannel = channelData.items[0];
-      setChannel(myChannel);
-
-      // ✅ Get Upload Playlist ID
-      const uploadsPlaylistId =
-        myChannel.contentDetails.relatedPlaylists.uploads;
-
-      // ✅ Fetch Videos From Upload Playlist
-      const videosRes = await fetch(
-        `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=25&playlistId=${uploadsPlaylistId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${providerToken}`,
-          },
-        }
-      );
-
-      const videosData = await videosRes.json();
-      setVideos(videosData.items);
-
+    if (!session?.provider_token) {
       setLoading(false);
-    };
+      return;
+    }
 
-    loadYouTubeData();
-  }, [router]);
+    const token = session.provider_token;
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        Loading YouTube Channel & Videos...
-      </div>
+    // ✅ FETCH ALL CHANNELS (PERSONAL + BRAND)
+    const channelRes = await fetch(
+      "https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true",
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
     );
+
+    const channelData = await channelRes.json();
+
+    if (!channelData.items?.length) {
+      setLoading(false);
+      return;
+    }
+
+    setChannels(channelData.items);
+    setSelectedChannel(channelData.items[0]);
+
+    loadVideos(channelData.items[0].id, token);
+    setLoading(false);
   }
 
-  if (!channel) {
-    return (
-      <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center">
-        <h1 className="text-3xl font-bold mb-6">Connect Your YouTube Channel</h1>
+  async function loadVideos(channelId: string, token: string) {
+    const res = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&maxResults=12&order=date&type=video`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
 
-        <button
-          onClick={async () => {
-            await supabase.auth.signInWithOAuth({
-              provider: "google",
-              options: {
-                scopes: "https://www.googleapis.com/auth/youtube.readonly",
-                redirectTo: "http://localhost:3000/youtube",
-              },
-            });
-          }}
-          className="bg-red-600 px-8 py-3 rounded-lg text-white font-semibold"
-        >
-          Login With YouTube
-        </button>
-      </main>
+    const data = await res.json();
+    setVideos(data.items || []);
+  }
+
+  async function switchChannel(channel: any) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.provider_token) return;
+
+    setSelectedChannel(channel);
+    loadVideos(channel.id, session.provider_token);
+  }
+
+  if (loading) {
+    return <div className="text-white p-10">Loading YouTube...</div>;
+  }
+
+  if (!channels.length) {
+    return (
+      <div className="text-red-500 text-center mt-20">
+        YouTube not connected.
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen bg-black text-white px-6 py-10">
+    <div className="p-10 text-white bg-black min-h-screen">
+      <h1 className="text-2xl mb-6">YouTube Dashboard</h1>
 
-      {/* ✅ CHANNEL INFO */}
-      <div className="flex items-center gap-6 mb-10">
-        <img
-          src={channel.snippet.thumbnails.high.url}
-          className="w-24 h-24 rounded-full"
-        />
-
-        <div>
-          <h1 className="text-3xl font-bold">{channel.snippet.title}</h1>
-          <p className="text-gray-400">
-            Subscribers:{" "}
-            {Number(channel.statistics.subscriberCount).toLocaleString()}
-          </p>
-          <p className="text-gray-400">
-            Total Videos: {channel.statistics.videoCount}
-          </p>
-        </div>
-      </div>
-
-      {/* ✅ VIDEO GRID */}
-      <h2 className="text-2xl font-bold mb-6">Your Uploaded Videos</h2>
-
-      <div className="grid md:grid-cols-4 gap-6">
-        {videos.map((video) => (
-          <div
-            key={video.snippet.resourceId.videoId}
-            className="border border-gray-800 rounded-lg overflow-hidden"
+      {/* ✅ CHANNEL SWITCH */}
+      <div className="flex gap-4 mb-6">
+        {channels.map((ch) => (
+          <button
+            key={ch.id}
+            onClick={() => switchChannel(ch)}
+            className={`px-4 py-2 rounded ${
+              selectedChannel?.id === ch.id
+                ? "bg-red-600"
+                : "bg-gray-800"
+            }`}
           >
-            <img
-              src={video.snippet.thumbnails.high.url}
-              className="w-full h-44 object-cover"
-            />
-
-            <div className="p-4">
-              <p className="font-semibold text-sm line-clamp-2">
-                {video.snippet.title}
-              </p>
-
-              <p className="text-gray-500 text-xs mt-1">
-                {new Date(video.snippet.publishedAt).toDateString()}
-              </p>
-            </div>
-          </div>
+            {ch.snippet.title}
+          </button>
         ))}
       </div>
 
-    </main>
+      {/* ✅ CHANNEL STATS */}
+      <div className="bg-gray-900 p-4 rounded mb-8">
+        <h2 className="text-xl font-bold">
+          {selectedChannel.snippet.title}
+        </h2>
+        <p>Subscribers: {selectedChannel.statistics.subscriberCount}</p>
+        <p>Total Views: {selectedChannel.statistics.viewCount}</p>
+        <p>Videos: {selectedChannel.statistics.videoCount}</p>
+      </div>
+
+      {/* ✅ VIDEOS */}
+      <h3 className="mb-3">Recent Uploads</h3>
+
+      <div className="grid grid-cols-4 gap-4">
+        {videos.map((v) => (
+          <div key={v.id.videoId} className="bg-gray-800 p-2 rounded">
+            <img
+              src={v.snippet.thumbnails.high.url}
+              className="rounded"
+            />
+            <p className="mt-2 text-sm">{v.snippet.title}</p>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
