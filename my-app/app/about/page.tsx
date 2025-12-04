@@ -1,74 +1,58 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
 
 export default function AboutPage() {
   const router = useRouter();
 
   return (
-    <main className="min-h-screen bg-black text-white px-6 py-12">
+    <main className="min-h-screen bg-black text-white px-10 py-14 relative">
+      {/* ✅ RIGHT SIDE BACK BUTTON (SAME AS DASHBOARD & PRICING) */}
+      <button
+        onClick={() => router.back()}
+        className="absolute top-6 right-10 bg-gray-800 px-5 py-2 rounded-lg text-sm hover:bg-gray-700"
+      >
+        ← Back
+      </button>
 
-      {/* HEADER */}
-      <div className="flex items-center justify-between mb-12">
-        <div>
-          <h1 className="text-4xl font-bold">About ShortsAI</h1>
-          <p className="text-gray-400 mt-1">
-            Smart AI-powered Shorts creation platform
-          </p>
-        </div>
+      <h1 className="text-4xl font-bold mb-2">About ShortsAI</h1>
+      <p className="text-gray-400 mb-8">
+        Smart AI-powered Shorts creation platform
+      </p>
 
-        <button
-          onClick={() => router.back()}
-          className="border border-gray-700 px-5 py-2 rounded-lg hover:border-white"
-        >
-          ← Back
-        </button>
+      <p className="mb-4 text-gray-300 max-w-3xl">
+        <span className="font-semibold text-white">ShortsAI</span> is an AI-powered
+        platform designed to help creators convert long-form content into
+        high-performing viral Shorts automatically.
+      </p>
+
+      <p className="mb-4 text-gray-300 max-w-3xl">
+        Our mission is simple:{" "}
+        <span className="text-white font-semibold">
+          Save creators time, boost reach, and grow faster.
+        </span>
+      </p>
+
+      <p className="mb-12 text-gray-300 max-w-3xl">
+        Using advanced AI moment-detection algorithms, ShortsAI finds the best,
+        most engaging parts of your videos and converts them into ready-to-post
+        vertical Shorts for YouTube, Instagram, and TikTok.
+      </p>
+
+      <div className="grid md:grid-cols-3 gap-8 max-w-5xl">
+        <StatCard value="10K+" label="Creators" />
+        <StatCard value="2M+" label="Shorts Generated" />
+        <StatCard value="98%" label="Client Satisfaction" />
       </div>
-
-      {/* CONTENT */}
-      <div className="max-w-4xl space-y-8 text-gray-300">
-
-        <p>
-          <span className="text-white font-semibold">ShortsAI</span> is an
-          AI-powered platform designed to help creators convert long-form
-          content into high-performing viral Shorts automatically.
-        </p>
-
-        <p>
-          Our mission is simple:
-          <span className="text-white font-semibold">
-            {" "}Save creators time, boost reach, and grow faster.
-          </span>
-        </p>
-
-        <p>
-          Using advanced AI moment-detection algorithms, ShortsAI finds the best,
-          most engaging parts of your videos and converts them into ready-to-post
-          vertical Shorts for YouTube, Instagram, and TikTok.
-        </p>
-
-        {/* STATS */}
-        <div className="grid md:grid-cols-3 gap-6 mt-12">
-
-          <div className="border border-gray-800 p-6 rounded-xl text-center">
-            <p className="text-4xl font-bold">10K+</p>
-            <p className="text-gray-400 mt-1">Creators</p>
-          </div>
-
-          <div className="border border-gray-800 p-6 rounded-xl text-center">
-            <p className="text-4xl font-bold">2M+</p>
-            <p className="text-gray-400 mt-1">Shorts Generated</p>
-          </div>
-
-          <div className="border border-gray-800 p-6 rounded-xl text-center">
-            <p className="text-4xl font-bold">98%</p>
-            <p className="text-gray-400 mt-1">Client Satisfaction</p>
-          </div>
-
-        </div>
-
-      </div>
-
     </main>
+  );
+}
+
+function StatCard({ value, label }: any) {
+  return (
+    <div className="border border-gray-800 rounded-xl p-6 text-center">
+      <p className="text-4xl font-bold">{value}</p>
+      <p className="text-gray-400 mt-2">{label}</p>
+    </div>
   );
 }

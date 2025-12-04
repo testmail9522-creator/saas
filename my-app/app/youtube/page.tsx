@@ -8,17 +8,18 @@ export default function YouTubeConnectPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [channel, setChannel] = useState<any>(null);
+  const [videos, setVideos] = useState<any[]>([]);
 
   useEffect(() => {
-    const checkAuthAndFetch = async () => {
-      // ✅ Block access if not logged in
+    const loadYouTubeData = async () => {
+      // ✅ Check App Login
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) {
         router.replace("/login");
         return;
       }
 
-      // ✅ Get OAuth session
+      // ✅ Get Google Access Token
       const { data: session } = await supabase.auth.getSession();
       const providerToken = session?.session?.provider_token;
 
@@ -27,9 +28,9 @@ export default function YouTubeConnectPage() {
         return;
       }
 
-      // ✅ Fetch YouTube Channel Info using Google Token
-      const res = await fetch(
-        "https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&mine=true",
+      // ✅ Fetch Channel Info
+      const channelRes = await fetch(
+        "https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails&mine=true",
         {
           headers: {
             Authorization: `Bearer ${providerToken}`,
@@ -37,70 +38,113 @@ export default function YouTubeConnectPage() {
         }
       );
 
-      const data = await res.json();
-      if (data?.items?.length > 0) {
-        setChannel(data.items[0]);
-      }
+      const channelData = await channelRes.json();
+      const myChannel = channelData.items[0];
+      setChannel(myChannel);
+
+      // ✅ Get Upload Playlist ID
+      const uploadsPlaylistId =
+        myChannel.contentDetails.relatedPlaylists.uploads;
+
+      // ✅ Fetch Videos From Upload Playlist
+      const videosRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=25&playlistId=${uploadsPlaylistId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${providerToken}`,
+          },
+        }
+      );
+
+      const videosData = await videosRes.json();
+      setVideos(videosData.items);
 
       setLoading(false);
     };
 
-    checkAuthAndFetch();
+    loadYouTubeData();
   }, [router]);
-
-  const connectYouTube = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        scopes: "https://www.googleapis.com/auth/youtube.readonly",
-        redirectTo: "http://localhost:3000/youtube",
-      },
-    });
-  };
 
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        Loading YouTube Connection...
+        Loading YouTube Channel & Videos...
       </div>
     );
   }
 
-  return (
-    <main className="min-h-screen bg-black text-white px-6 py-12 flex flex-col items-center">
+  if (!channel) {
+    return (
+      <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center">
+        <h1 className="text-3xl font-bold mb-6">Connect Your YouTube Channel</h1>
 
-      <h1 className="text-4xl font-bold mb-4">Connect Your YouTube Channel</h1>
-      <p className="text-gray-400 mb-10">Login with YouTube to analyze your Shorts</p>
-
-      {!channel ? (
         <button
-          onClick={connectYouTube}
-          className="bg-red-600 px-8 py-3 rounded-lg text-white font-semibold hover:bg-red-700 transition"
+          onClick={async () => {
+            await supabase.auth.signInWithOAuth({
+              provider: "google",
+              options: {
+                scopes: "https://www.googleapis.com/auth/youtube.readonly",
+                redirectTo: "http://localhost:3000/youtube",
+              },
+            });
+          }}
+          className="bg-red-600 px-8 py-3 rounded-lg text-white font-semibold"
         >
-          Login with YouTube
+          Login With YouTube
         </button>
-      ) : (
-        <div className="border border-gray-800 rounded-xl p-8 text-center max-w-md w-full mt-10">
+      </main>
+    );
+  }
 
-          <img
-            src={channel.snippet.thumbnails.default.url}
-            className="w-20 h-20 rounded-full mx-auto mb-4"
-          />
+  return (
+    <main className="min-h-screen bg-black text-white px-6 py-10">
 
-          <h2 className="text-2xl font-bold">{channel.snippet.title}</h2>
-          <p className="text-gray-400 mt-1">
-            Subscribers: {Number(channel.statistics.subscriberCount).toLocaleString()}
+      {/* ✅ CHANNEL INFO */}
+      <div className="flex items-center gap-6 mb-10">
+        <img
+          src={channel.snippet.thumbnails.high.url}
+          className="w-24 h-24 rounded-full"
+        />
+
+        <div>
+          <h1 className="text-3xl font-bold">{channel.snippet.title}</h1>
+          <p className="text-gray-400">
+            Subscribers:{" "}
+            {Number(channel.statistics.subscriberCount).toLocaleString()}
           </p>
-
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="mt-6 bg-white text-black px-6 py-2 rounded-lg font-semibold"
-          >
-            Go to Dashboard
-          </button>
-
+          <p className="text-gray-400">
+            Total Videos: {channel.statistics.videoCount}
+          </p>
         </div>
-      )}
+      </div>
+
+      {/* ✅ VIDEO GRID */}
+      <h2 className="text-2xl font-bold mb-6">Your Uploaded Videos</h2>
+
+      <div className="grid md:grid-cols-4 gap-6">
+        {videos.map((video) => (
+          <div
+            key={video.snippet.resourceId.videoId}
+            className="border border-gray-800 rounded-lg overflow-hidden"
+          >
+            <img
+              src={video.snippet.thumbnails.high.url}
+              className="w-full h-44 object-cover"
+            />
+
+            <div className="p-4">
+              <p className="font-semibold text-sm line-clamp-2">
+                {video.snippet.title}
+              </p>
+
+              <p className="text-gray-500 text-xs mt-1">
+                {new Date(video.snippet.publishedAt).toDateString()}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+
     </main>
   );
 }
