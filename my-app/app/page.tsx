@@ -4,68 +4,71 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function HomePage() {
-  const [videoUrl, setVideoUrl] = useState("");
-  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const [url, setUrl] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleGenerate = () => {
-    if (!videoUrl.includes("youtube.com") && !videoUrl.includes("youtu.be")) {
-      alert("Please paste a valid YouTube video link");
+  const handleGenerate = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!url.trim()) {
+      alert("Please paste a YouTube link");
       return;
     }
 
     setLoading(true);
 
-    // ✅ Store link for next step (dashboard / processing page)
-    localStorage.setItem("yt_video_url", videoUrl);
-
-    // ✅ Redirect to dashboard (processing page)
-    router.push("/dashboard");
+    // ✅ Fake AI processing delay like ChatGPT
+    setTimeout(() => {
+      router.push("/generate");
+    }, 2500);
   };
 
   return (
-    <main className="min-h-screen bg-black text-white flex flex-col items-center justify-center px-6">
+    <main className="min-h-screen bg-black text-white pt-40 px-6">
+      <div className="max-w-4xl mx-auto text-center">
 
-      {/* ============ HERO TEXT ============ */}
-      <h1 className="text-4xl md:text-6xl font-extrabold text-center mb-6">
-        Paste a YouTube Link.<br />
-        Get <span className="text-red-600">Viral Shorts Automatically</span>
-      </h1>
+        <h1 className="text-5xl font-bold mb-4">
+          Paste a YouTube Link.
+        </h1>
 
-      <p className="text-gray-400 text-center max-w-2xl mb-10">
-        Just paste your YouTube video or livestream link.
-        Our AI will find the best moments and convert them into
-        high-retention vertical Shorts — ready to download.
-      </p>
+        <h2 className="text-red-500 text-4xl font-bold mb-3">
+          Get Viral Shorts Automatically
+        </h2>
 
-      {/* ============ INPUT BOX ============ */}
-      <div className="w-full max-w-2xl flex flex-col md:flex-row gap-4">
+        {/* ✅ SINGLE LINE DESCRIPTION */}
+        <p className="text-neutral-400 mb-10 text-sm">
+          Just paste your YouTube video or livestream link. Our AI will convert it into viral-ready Shorts.
+        </p>
 
-        <input
-          type="text"
-          placeholder="Paste YouTube video link here..."
-          value={videoUrl}
-          onChange={(e) => setVideoUrl(e.target.value)}
-          className="flex-1 px-5 py-4 rounded-xl bg-zinc-900 border border-zinc-700 outline-none text-white"
-        />
+        {/* ✅ INPUT + BUTTON */}
+        <form onSubmit={handleGenerate} className="flex justify-center gap-4">
+          <input
+            type="text"
+            placeholder="Paste YouTube video link here..."
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            className="w-[420px] px-4 py-3 rounded bg-neutral-800 text-white outline-none"
+          />
 
-        <button
-          onClick={handleGenerate}
-          disabled={loading}
-          className="bg-red-600 px-8 py-4 rounded-xl font-semibold hover:bg-red-700 transition disabled:opacity-50"
-        >
-          {loading ? "Processing..." : "Generate Shorts"}
-        </button>
+          <button
+            type="submit"
+            className="bg-red-600 hover:bg-red-700 transition px-6 py-3 rounded font-semibold"
+          >
+            Generate Shorts
+          </button>
+        </form>
 
+        {/* ✅ CHATGPT STYLE LOADER */}
+        {loading && (
+          <div className="mt-10 flex flex-col items-center">
+            <div className="animate-spin h-8 w-8 border-4 border-red-500 border-t-transparent rounded-full mb-4"></div>
+            <p className="text-neutral-400 text-sm">
+              Analyzing video… Creating viral clips…
+            </p>
+          </div>
+        )}
       </div>
-
-      {/* ============ TRUST STRIP ============ */}
-      <div className="mt-12 flex gap-8 text-gray-400 text-sm">
-        <span>✅ No Login Required</span>
-        <span>✅ No Channel Access</span>
-        <span>✅ Download Instantly</span>
-      </div>
-
     </main>
   );
 }

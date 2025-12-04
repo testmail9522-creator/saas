@@ -1,4 +1,5 @@
 import "./globals.css";
+import { GenerationProvider } from "./context/GenerationContext";
 import ClientHeader from "./components/ClientHeader";
 
 export default function RootLayout({
@@ -9,8 +10,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-black text-white">
-        <ClientHeader />
-        {children}
+        <GenerationProvider>
+          <ClientHeader />
+          {children}
+        </GenerationProvider>
       </body>
     </html>
   );

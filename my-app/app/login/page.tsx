@@ -1,221 +1,143 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-
-
-type Mode = "login" | "signup" | "forgot";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
 
-  const [mode, setMode] = useState<Mode>("login");
+  const [isSignup, setIsSignup] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ PASSWORD VALIDATION (8+)
-  const validatePassword = () => {
-    if (password.length < 8) {
-      alert("Password must be at least 8 characters long.");
-      return false;
-    }
-    return true;
+  // ✅ LIVE PASSWORD RULES
+  const hasMinLength = password.length >= 8;
+  const hasCapital = /[A-Z]/.test(password);
+  const hasNumber = /[0-9]/.test(password);
+  const isPasswordValid = hasMinLength && hasCapital && hasNumber;
+
+  // ✅ VALID EMAIL FORMAT CHECK
+  const isValidEmail = (email: string) =>
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  // ✅ ENTER KEY SUPPORT
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") handleSubmit();
   };
 
-  // ✅ LOGIN
-  const handleLogin = async () => {
-    if (!validatePassword()) return;
+  const handleSubmit = async () => {
+    setError("");
 
-    setLoading(true);
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    setLoading(false);
-
-    if (error) {
-      alert(error.message);
+    if (!isValidEmail(email)) {
+      setError("Enter a valid email address");
       return;
     }
 
-    router.push("/dashboard");
-  };
-
-  // ✅ SIGNUP
-  const handleSignup = async () => {
-    if (!validatePassword()) return;
-
-    setLoading(true);
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    setLoading(false);
-
-    if (error) {
-      alert(error.message);
+    if (isSignup && !isPasswordValid) {
+      setError("Password does not meet all requirements");
       return;
     }
 
-    alert("Account created successfully! Please login.");
-    setMode("login");
-  };
+    try {
+      setLoading(true);
 
-  // ✅ FORGOT PASSWORD (INSIDE SAME PAGE)
-  const handleForgotPassword = async () => {
-    if (!email) {
-      alert("Please enter your email.");
-      return;
+      if (isSignup) {
+        const { error } = await supabase.auth.signUp({ email, password });
+        if (error) throw error;
+
+        alert("Verification email sent! Please verify and login.");
+        setIsSignup(false);
+        setEmail("");
+        setPassword("");
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) throw error;
+
+        router.push("/");
+        router.refresh();
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(true);
-
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: "http://localhost:3000/reset-password",
-    });
-
-    setLoading(false);
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    alert("Password reset link sent to your email.");
-    setMode("login");
-  };
-
-  // ✅ GOOGLE LOGIN
-  const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-    });
   };
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center px-6">
+    <div className="min-h-screen bg-black flex items-center justify-center px-4">
+      <div className="bg-[#0f0f0f] w-full max-w-sm p-8 rounded-2xl shadow-xl">
 
-      <div className="border border-gray-800 rounded-xl p-8 w-full max-w-md">
-
-        <h1 className="text-3xl font-bold text-center mb-6">
-          {mode === "login" && "Login to ShortsAI"}
-          {mode === "signup" && "Create Your Account"}
-          {mode === "forgot" && "Reset Your Password"}
+        <h1 className="text-2xl font-bold text-center mb-6">
+          {isSignup ? "Create Account " : "Login to "}
+          <span className="text-red-500">ShortsAI</span>
         </h1>
 
-        {/* ✅ EMAIL ALWAYS SHOWN */}
-        <label className="block text-sm mb-2">Email</label>
         <input
           type="email"
+          placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full mb-4 p-3 rounded-lg bg-black border border-gray-700 outline-none"
+          onKeyDown={handleKeyDown}
+          className="w-full mb-4 px-4 py-3 rounded bg-[#1b1b1b] outline-none"
         />
 
-        {/* ✅ PASSWORD ONLY FOR LOGIN & SIGNUP */}
-        {mode !== "forgot" && (
-          <>
-            <label className="block text-sm mb-2">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full mb-1 p-3 rounded-lg bg-black border border-gray-700 outline-none"
-            />
-            <p className="text-xs text-gray-500 mb-4">
-              Password must be at least 8 characters
+        <input
+          type="password"
+          placeholder="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={handleKeyDown}
+          className={`w-full mb-3 px-4 py-3 rounded outline-none bg-[#1b1b1b] ${
+            isSignup && !isPasswordValid ? "border border-red-500" : ""
+          }`}
+        />
+
+        {/* ✅ ✅ ✅ LIVE PASSWORD VALIDATION UI */}
+        {isSignup && (
+          <div className="text-xs mb-3 space-y-1">
+            <p className={hasMinLength ? "text-green-400" : "text-red-400"}>
+              • Minimum 8 characters
             </p>
-          </>
-        )}
-
-        {/* ✅ MAIN ACTION BUTTON */}
-        {mode === "login" && (
-          <button
-            onClick={handleLogin}
-            disabled={loading}
-            className="w-full bg-white text-black py-3 rounded-lg font-semibold hover:bg-gray-200 transition mb-4"
-          >
-            {loading ? "Logging in..." : "Login"}
-          </button>
-        )}
-
-        {mode === "signup" && (
-          <button
-            onClick={handleSignup}
-            disabled={loading}
-            className="w-full bg-white text-black py-3 rounded-lg font-semibold hover:bg-gray-200 transition mb-4"
-          >
-            {loading ? "Creating Account..." : "Create Account"}
-          </button>
-        )}
-
-        {mode === "forgot" && (
-          <button
-            onClick={handleForgotPassword}
-            disabled={loading}
-            className="w-full bg-white text-black py-3 rounded-lg font-semibold hover:bg-gray-200 transition mb-4"
-          >
-            {loading ? "Sending reset link..." : "Send Reset Link"}
-          </button>
-        )}
-
-        {/* ✅ GOOGLE LOGIN ONLY IN LOGIN MODE */}
-        {mode === "login" && (
-          <button
-            onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 border border-gray-700 py-3 rounded-lg hover:border-white transition mb-4"
-          >
-            <img src="/youtube.png" className="w-5 h-5" />
-            Continue with Google (YouTube)
-          </button>
-        )}
-
-        {/* ✅ MODE TOGGLES */}
-        <div className="text-center text-sm space-y-2 text-gray-400">
-
-          {mode === "login" && (
-            <>
-              <button
-                onClick={() => setMode("forgot")}
-                className="hover:text-white"
-              >
-                Forgot password?
-              </button>
-
-              <p>
-                Don’t have an account?{" "}
-                <button
-                  onClick={() => setMode("signup")}
-                  className="text-white underline"
-                >
-                  Create Account
-                </button>
-              </p>
-            </>
-          )}
-
-          {mode !== "login" && (
-            <p>
-              Back to{" "}
-              <button
-                onClick={() => setMode("login")}
-                className="text-white underline"
-              >
-                Login
-              </button>
+            <p className={hasCapital ? "text-green-400" : "text-red-400"}>
+              • 1 Capital letter
             </p>
-          )}
+            <p className={hasNumber ? "text-green-400" : "text-red-400"}>
+              • 1 Number
+            </p>
+          </div>
+        )}
 
-        </div>
+        {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="w-full bg-red-600 hover:bg-red-700 py-3 rounded font-semibold disabled:opacity-50"
+        >
+          {loading ? "Processing..." : isSignup ? "Create Account" : "Login"}
+        </button>
+
+        <p className="text-center text-sm text-gray-400 mt-4">
+          {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
+          <span
+            onClick={() => {
+              setIsSignup(!isSignup);
+              setError("");
+            }}
+            className="text-red-500 cursor-pointer"
+          >
+            {isSignup ? "Login" : "Sign up"}
+          </span>
+        </p>
 
       </div>
-
-    </main>
+    </div>
   );
 }
