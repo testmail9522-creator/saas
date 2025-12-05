@@ -1,115 +1,80 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { LinkIcon } from "@heroicons/react/24/outline";
+import SampleShowcase from "@/app/components/SampleShowcase";
 
-export default function SignupPage() {
-  const router = useRouter();
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+export default function HomePage() {
+  const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const hasMinLength = password.length >= 8;
-  const hasCapital = /[A-Z]/.test(password);
-  const hasNumber = /[0-9]/.test(password);
+  const handleGenerate = (e: React.FormEvent) => {
+    e.preventDefault();
 
-  const isValid = hasMinLength && hasCapital && hasNumber;
-
-  // ✅ ENTER + BUTTON SUBMIT
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault(); // ✅ PREVENT PAGE RELOAD
-    setError("");
-
-    if (!isValid) {
-      setError("Please follow all password rules.");
+    if (!url.trim()) {
+      alert("Please paste a YouTube link");
       return;
     }
 
     setLoading(true);
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    setLoading(false);
-
-    if (error) {
-      setError(error.message);
-      return;
-    }
-
-    alert("Signup successful! Please login.");
-    router.push("/login");
+    setTimeout(() => {
+      window.location.href = "/generate";
+    }, 1500);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-black text-white pt-24">
-      <form
-        onSubmit={handleSignup} // ✅ ENTER WORKS
-        className="bg-[#111] p-8 rounded-xl w-full max-w-sm shadow-xl border border-neutral-800"
-      >
-        <h2 className="text-2xl font-bold mb-6 text-center">
-          Create Account <span className="text-red-500">ShortsAI</span>
+    <main className="bg-black min-h-screen text-white pb-24">
+
+      {/* 🟦 EXACT SAME TOP SPACING AS PRICING PAGE */}
+      <div className="max-w-5xl mx-auto text-center pt-24 px-6">
+
+        <h1 className="text-6xl font-bold mb-4">
+          Paste a YouTube Link.
+        </h1>
+
+        <h2 className="text-red-500 text-5xl font-bold mb-6">
+          Get Viral Shorts Automatically
         </h2>
 
-        {error && (
-          <p className="text-red-500 text-sm mb-4 text-center">{error}</p>
-        )}
-
-        <input
-          type="email"
-          placeholder="Email"
-          required
-          className="w-full p-3 mb-4 rounded bg-gray-800 outline-none border border-neutral-700"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-
-        <input
-          type="password"
-          placeholder="Password"
-          required
-          className="w-full p-3 mb-3 rounded bg-gray-800 outline-none border border-neutral-700"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-
-        {/* Password rules */}
-        <div className="text-sm mb-4 space-y-1">
-          <p className={hasMinLength ? "text-green-500" : "text-red-500"}>
-            • Minimum 8 characters
-          </p>
-          <p className={hasCapital ? "text-green-500" : "text-red-500"}>
-            • At least 1 Capital Letter
-          </p>
-          <p className={hasNumber ? "text-green-500" : "text-red-500"}>
-            • At least 1 Number
-          </p>
-        </div>
-
-        <button
-          type="submit" // ✅ ENTER TRIGGERS THIS
-          disabled={!isValid || loading}
-          className={`w-full py-3 rounded font-semibold transition ${
-            !isValid || loading
-              ? "bg-gray-600 cursor-not-allowed"
-              : "bg-red-600 hover:bg-red-700"
-          }`}
-        >
-          {loading ? "Creating..." : "Create Account"}
-        </button>
-
-        <p className="text-sm text-neutral-400 mt-4 text-center">
-          Already have an account?{" "}
-          <a href="/login" className="text-red-500 hover:underline">
-            Login
-          </a>
+        <p className="text-neutral-400 mb-12 text-lg">
+          Just paste your YouTube video or livestream link.  
+          Our AI will convert it into viral-ready Shorts.
         </p>
-      </form>
-    </div>
+
+        {/* Input + Button */}
+        <form onSubmit={handleGenerate} className="flex justify-center gap-4">
+
+          <div className="flex items-center gap-3 w-[480px] bg-neutral-900 px-4 py-3 rounded-full shadow-md shadow-black/40">
+            <LinkIcon className="h-5 w-5 text-neutral-400" />
+            <input
+              type="text"
+              placeholder="Drop a video link"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className="w-full bg-transparent outline-none text-white"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="bg-white text-black px-10 py-3 rounded-full font-semibold text-lg hover:bg-neutral-200 transition shadow-lg shadow-black/30"
+          >
+            Get Clips
+          </button>
+        </form>
+
+        {/* Loading Animation */}
+        {loading && (
+          <div className="mt-8 text-neutral-300 text-sm animate-pulse">
+            Processing video... Creating viral shorts...
+          </div>
+        )}
+      </div>
+
+      {/* Showcase Area */}
+      <div className="mt-20 max-w-6xl mx-auto px-6">
+        <SampleShowcase />
+      </div>
+    </main>
   );
 }
