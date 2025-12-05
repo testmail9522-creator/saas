@@ -2,21 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body {
-  background: #000;
-  color: white;
+/* -------------------------------
+      GLOBAL STYLES
+--------------------------------*/
+body {
+  @apply bg-black text-white antialiased;
 }
 
-input {
-  background: #1f2933;
-  border: 1px solid #2a2a2a;
-  color: white;
-  padding: 12px;
-  border-radius: 10px;
-  outline: none;
-  width: 100%;
+/* Optional: Improve scroll smoothness */
+html {
+  scroll-behavior: smooth;
 }
 
-input:focus {
-  border-color: #ef4444;
+/* -------------------------------
+      FLOATING ANIMATIONS (FINAL)
+--------------------------------*/
+
+/* Slow floating */
+@keyframes floatSlow {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+.animate-float-slow {
+  animation: floatSlow 5s ease-in-out infinite;
+}
+
+/* Medium floating */
+@keyframes floatMedium {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-14px); }
+  100% { transform: translateY(0px); }
+}
+.animate-float {
+  animation: floatMedium 4s ease-in-out infinite;
+}
+
+/* Fast floating */
+@keyframes floatFast {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-18px); }
+  100% { transform: translateY(0px); }
+}
+.animate-float-fast {
+  animation: floatFast 3s ease-in-out infinite;
+}
+
+/* -------------------------------
+   OPUS STYLE CARD SHADOW + GLOW
+--------------------------------*/
+.card-glow {
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.08);
 }

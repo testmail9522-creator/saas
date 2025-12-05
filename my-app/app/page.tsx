@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { LinkIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
 
 export default function HomePage() {
@@ -10,7 +11,6 @@ export default function HomePage() {
 
   const handleGenerate = (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!url.trim()) {
       alert("Please paste a YouTube link");
       return;
@@ -18,57 +18,72 @@ export default function HomePage() {
 
     setLoading(true);
 
-    // ✅ Fake AI processing delay like ChatGPT
     setTimeout(() => {
       router.push("/generate");
-    }, 2500);
+    }, 2000);
   };
 
   return (
-    <main className="min-h-screen bg-black text-white pt-40 px-6">
+    <main className="min-h-screen bg-black text-white px-6 pt-28">
+
+      {/* HERO TEXT */}
       <div className="max-w-4xl mx-auto text-center">
 
-        <h1 className="text-5xl font-bold mb-4">
+        <h1 className="text-5xl font-bold mb-2">
           Paste a YouTube Link.
         </h1>
 
-        <h2 className="text-red-500 text-4xl font-bold mb-3">
+        <h2 className="text-red-500 text-4xl font-bold mb-4">
           Get Viral Shorts Automatically
         </h2>
 
-        {/* ✅ SINGLE LINE DESCRIPTION */}
-        <p className="text-neutral-400 mb-10 text-sm">
+        <p className="text-neutral-400 text-lg mb-10">
           Just paste your YouTube video or livestream link. Our AI will convert it into viral-ready Shorts.
         </p>
 
-        {/* ✅ INPUT + BUTTON */}
-        <form onSubmit={handleGenerate} className="flex justify-center gap-4">
-          <input
-            type="text"
-            placeholder="Paste YouTube video link here..."
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            className="w-[420px] px-4 py-3 rounded bg-neutral-800 text-white outline-none"
-          />
+        {/* Input Field */}
+        <form
+          onSubmit={handleGenerate}
+          className="flex justify-center gap-4 items-center"
+        >
+          <div className="flex items-center bg-neutral-900 px-4 py-3 rounded-full w-[460px]">
+            <LinkIcon className="w-5 h-5 text-neutral-400 mr-3" />
+            <input
+              type="text"
+              placeholder="Drop a video link"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className="bg-transparent w-full outline-none text-white"
+            />
+          </div>
 
           <button
             type="submit"
-            className="bg-red-600 hover:bg-red-700 transition px-6 py-3 rounded font-semibold"
+            className="bg-white text-black px-8 py-3 rounded-full font-semibold hover:bg-neutral-200 transition"
           >
-            Generate Shorts
+            Get Clips
           </button>
         </form>
 
-        {/* ✅ CHATGPT STYLE LOADER */}
+        {/* Loader */}
         {loading && (
-          <div className="mt-10 flex flex-col items-center">
-            <div className="animate-spin h-8 w-8 border-4 border-red-500 border-t-transparent rounded-full mb-4"></div>
-            <p className="text-neutral-400 text-sm">
-              Analyzing video… Creating viral clips…
-            </p>
+          <div className="mt-10 animate-pulse text-neutral-400">
+            Processing video… Creating viral clips…
           </div>
         )}
       </div>
+
+      {/* MOVING IMAGE CARDS SECTION */}
+      <section className="mt-20 max-w-6xl mx-auto">
+        <div className="overflow-hidden">
+          <div className="flex gap-6 animate-scrollSlow">
+            <img src="/sample1.webp" className="w-[320px] rounded-xl" />
+            <img src="/sample2.webp" className="w-[320px] rounded-xl" />
+            <img src="/sample1.webp" className="w-[320px] rounded-xl" />
+          </div>
+        </div>
+      </section>
+
     </main>
   );
 }
